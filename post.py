@@ -8,6 +8,10 @@ TODO LIST (Apart from inline todos)
 * What determines if we can't connect?  Is there a timeout we'll deal with?
   What is it?!
 
+* In the interest of making the install easy for most folks, this is all done in
+  regex.  Perhaps consider an easy way to reimplement this using standard (-ish)
+  DOM parsers (n either python or another language).
+
 '''
 import cookielib
 import datetime
@@ -49,11 +53,11 @@ def controller():
 
     # Decode to the appropriate base.
     if options.user and options.password:
-        return parse_weblogin_params(
+        params = parse_weblogin_params(
             weblogin_get_html(), 
-            options.user, 
-            options.password,
         )
+        params['user'] = options.user
+        params['pass'] = options.password
 
     p.print_help()
     sys.exit(1)
@@ -68,7 +72,7 @@ def weblogin_get_html():
     html_str = response.read()
     return html_str
 
-def parse_weblogin_params(html_str, user, password):
+def parse_hidden_params(html_str):
     '''
     They have a bunch of bogus parameters sent
     through the website once you log in for the
@@ -78,15 +82,20 @@ def parse_weblogin_params(html_str, user, password):
     with the post.
     '''
     params = {}
-    params['user']     = user
-    params['pass'] = password
     matches = re.split(r'(\<input\s+type="hidden".*?\>)', html_str)
     for line in matches:
         p = re.match(r'^.*?name="(?P<name>.*?)"\s+value="(?P<value>.*?)"', line)
         if p:
             params[p.group('name')] = p.group('value')
-
     return params
+
+def parse_rediret_action(html_str):
+    '''
+    This is meant to handle the case when the user has to be redirected by one
+    of those silly "continue" buttons.  It usually has a link under the
+    parameter labeled "action" and we need to parse it out of there.
+    '''
+    pass
 
 def set_url_opener():
     '''
@@ -123,21 +132,8 @@ def build_schedule_params(qtr_index, sln):
 
 def get_schedule_page_html(params):
     post_data_encoded = urllib.urlencode(params)
-    print SCHEDULE_URL + post_data_encoded
     request = urllib2.Request(SCHEDULE_URL, post_data_encoded, HTTP_HEADERS)
     return urllib2.urlopen(request)
-
-def parse_schedule_params(html_str):
-    params = {}
-    params['user']     = user
-    params['pass'] = password
-    matches = re.split(r'(\<input\s+type="hidden".*?\>)', html_str)
-    for line in matches:
-        p = re.match(r'^.*?name="(?P<name>.*?)"\s+value="(?P<value>.*?)"', line)
-        if p:
-            params[p.group('name')] = p.group('value')
-
-    return params
 
 def main():
     ''' 
@@ -161,10 +157,13 @@ def main():
     # Build params for the schedule page.
     params = build_schedule_params(3, 10180)   # TODO: Hard coded!  Change after debugging.
     response = get_schedule_page_html(params)
-    print response.read()
+    html_str = response.read()
+    print html_str
 
     # Now that we're here, we don't give a crap about javascript, so we'll need
     # to refresh the page with the silly fake cookie they gave us.
+    params = parse_hidden_params(html_str)
+    print params
 
     print '-----------------------------------------------\n'
 
