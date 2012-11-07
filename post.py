@@ -1,18 +1,21 @@
-import re
+import cookielib
 import optparse
+import re
 import sys
 import urllib
 import urllib2
 
-# This will send a post request to weblogin.washington.edu so we can have the
-# public cookie for the website.  Afterwards, we can spam the SLN numbers of
-# the site.  Later we should make it so that we can log in with command line
-# parameters.
+# These are the current known strings for time schedule quarters.
+# for now we'll have to have the user specify which one is which.
+QUARTERS = ['AUT', 'WIN',]
 
 # This will be where we log in.
-url = "https://weblogin.washington.edu/"
+WEBLOGIN_URL = "https://weblogin.washington.edu/"
 
-# Some fake headers so they think we have JS and the like.
+# UW Time Schedule URL
+SCHED_URL = "https://sdb.admin.washington.edu/timeschd/uwnetid/sln.asp"
+
+# Some fake headers so they think we have JS and the like (lol, Windows NT).
 HTTP_HEADERS = {"User-Agent":"Mozilla/4.0 (compatible; MSIE 5.5;Windows NT)"}
 
 def controller():
@@ -40,7 +43,7 @@ def login_get():
     Gets the login page with a get request (so we can parse the bogus header
     values that determine how long we've been on the page and such).
     '''
-    request = urllib2.Request(url=url, data=None, headers=HTTP_HEADERS)
+    request = urllib2.Request(url=WEBLOGIN_URL, data=None, headers=HTTP_HEADERS)
     response = urllib2.urlopen(request)
     html_str = response.read()
     return html_str
@@ -65,15 +68,36 @@ def params_parse(html_str, user, password):
 
     return params
 
-def main():
-    params = controller()
-    post_data_encoded = urllib.urlencode(params)
+def set_url_opener():
+    '''
+    Builds a cookie-lovin, url openin machine (pretty simple, but the
+    implementation may change later, so it's a function).
+    '''
+    cookies = cookielib.CookieJar()
+    cookie_handler = urllib2.HTTPCookieProcessor(cookies)
+    url_opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cookies))
+    urllib2.install_opener(url_opener)
 
-    # Get the url again with a POST
-    request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
+def main():
+    ''' 
+    Gets the cookies from the WEBLOGIN_URL using the passed params.
+    '''
+    params = controller()  # Set params from get request.
+
+    # Set the cookie handler so we can get cookies from the POST request.
+    set_url_opener()
+
+    post_data_encoded = urllib.urlencode(params)
+    request = urllib2.Request(WEBLOGIN_URL, post_data_encoded, HTTP_HEADERS)
+
+    ''' 
+    TODO: Handle a) The WEBLOGIN_URL not opening, b) The username/pass being wrong
+    '''
     response = urllib2.urlopen(request)
-    print response.read()
-    print post_data_encoded
+    print response.read()   # to check we've logged in (debug.  remove later.)
+
+
+    
 
 if __name__ == '__main__':
     main()
