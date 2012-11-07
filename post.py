@@ -6,8 +6,11 @@ import urllib2
 # the site.  Later we should make it so that we can log in with command line
 # parameters.
 
+# This will be where we log in.
 url = "https://weblogin.washington.edu/"
-http_headers = {"User-Agent":"Mozilla/4.0 (compatible; MSIE 5.5;Windows NT)"}
+
+# Some fake headers so they think we have JS and the like.
+HTTP_HEADERS = {"User-Agent":"Mozilla/4.0 (compatible; MSIE 5.5;Windows NT)"}
 
 # Change this later!
 post_data = {
@@ -24,15 +27,24 @@ post_data = {
     with the post.
 '''
 
+def login_get():
+    '''
+    Gets the login page with a get request (so we can parse the bogus header
+    values that determine how long we've been on the page and such).
+
+    Then returns the dictionary of post parameters.
+    '''
+    request = urllib2.Request(url=url, data=None, headers=HTTP_HEADERS)
+    response = urllib2.urlopen(request)
+    html_str = response.read()
+    return html_str
+
 def main():
+    pass
 
-post_data_encoded = urllib.urlencode(post_data)
+# These will be used later for posting data!
+# post_data_encoded = urllib.urlencode(post_data)
+# request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
+# response = urllib2.urlopen(request)
 
-request = urllib2.Request(url=url, data=None, headers=http_headers)
-response = urllib2.urlopen(request)
-
-html_string = response.read()
-
-#request = urllib2.Request(url, post_data_encoded, http_headers)
-#response = urllib2.urlopen(request)
-print html_string
+print login_get()
