@@ -32,12 +32,10 @@ def controller():
 
     options, arguments = p.parse_args()
 
-    print options.user
-    print options.password
-
     # Decode to the appropriate base.
     if options.user and options.password:
-        return params_parse(login_get())
+        return params_parse(login_get(), user=options.user,
+                            password=options.password)
 
     p.print_help()
     sys.exit(1)
@@ -62,13 +60,17 @@ def login_get():
     html_str = response.read()
     return html_str
 
-def params_parse(msg):
-    matches = re.split(r'(\<input\s+type="hidden".*?\>)', msg)
+def params_parse(html_str, user, password):
+    matches = re.split(r'(\<input\s+type="hidden".*?\>)', html_str)
     params = {}
     for line in matches:
         p = re.match(r'^.*?name="(?P<name>.*?)"\s+value="(?P<value>.*?)"', line)
         if p:
+            print p.group('name') + ": " + p.group('value')
             params[p.group('name')] = p.group('value')
+
+    params['user']     = user
+    params['password'] = password
     return params
 
 def main():
@@ -76,10 +78,10 @@ def main():
     post_data_encoded = urllib.urlencode(params)
 
     # Get the url again with a POST
-    request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
-    response = urllib2.urlopen(request)
+    #request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
+    #response = urllib2.urlopen(request)
     print params
-    print response.read()
+    #print response.read()
 
 if __name__ == '__main__':
     main()
