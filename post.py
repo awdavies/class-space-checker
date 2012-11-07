@@ -15,12 +15,54 @@ TODO LIST (Apart from inline todos)
 
 '''
 import cookielib
+from HTMLParser import HTMLParser
+from htmlentitydefs import name2codepoint
 import datetime
 import optparse
 import re
 import sys
 import urllib
 import urllib2
+
+class HTMLTableParser(HTMLParser):
+    '''
+    This parses an HTML table and turns it into a big scary array.
+
+    Robustness is not addressed as this whole thing is a big hack....
+
+    we just want to get things running first, then niceties later.
+    '''
+    _table_index = 0
+    _table_row_index = 0
+    _table = []
+    _last_starttag = ""
+    _last_endtag = ""
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'table':
+            print "TABLE START: ", attrs
+        if tag == 'tr':
+            print '\tTABLE ROW START: ', attrs
+        if tag == 'td' or tag  == 'tt' or tag == 'th':
+            print '\t\tTABLE ELMNT START: ', attrs
+
+    def handle_endtag(self, tag):
+        self._last_endtag = tag
+        if self._last_starttag == self._last_endtag:
+            self._last_starttag = ''
+        if tag == 'table':
+            self._table_index += 1
+            print "TABLE END: "
+        if tag == 'tr':
+            print '\tTABLE ROW END: '
+        if tag == 'td' or tag  == 'tt' or tag == 'th':
+            print '\t\tTABLE ELMNT END: '
+
+    def handle_data(self, data):
+        if self._last_starttag == 'td' or self._last_starttag == 'tt' or \
+           self._last_starttag == 'th' or self._last_starttag == 'a':
+            print "\t\t\tDATA: ", data
+    
 
 # These are the current known strings for time schedule quarters.
 # for now we'll have to have the user specify which one is which.
@@ -60,7 +102,7 @@ def controller():
         )
         params['user'] = options.user
         params['pass'] = options.password
-        return params, ssn
+        return params, options.ssn
 
     p.print_help()
     sys.exit(1)
@@ -147,6 +189,44 @@ def build_schedule_params(qtr_index, sln):
     params['SLN'] = sln
     return params
 
+def parse_course_info(html_str):
+    '''
+    This is for parsing the class info on the ASP pages hosted by UW.
+    Since they all follow a basic format, we should be able to go through
+    and find out the three things we want to know:
+
+    * The class title (for display, and for if/when we decide to send this thing
+      to people's emails.
+
+    * The capacity for the class.
+
+    * The enrollment count for the class.
+
+    From these threee things we should be able to get all the data we need.  If
+    not, then we'll simply add more things for whch we will try to parse.
+
+    This expects a string as input, and returns a matched regex class as output,
+    which can be None if nonthing was matched properly.
+    '''
+    html_str = "".join(html_str.splitlines()) 
+    print html_str
+
+    # The holy grail of worst practices here... need to get rid of all the
+    # r'.*?' bits...  Either that or actually use an HTML parser for this.
+    # This is a bad idea, and I should feel bad for trying it.... we need an
+    # array of table data instead.
+    #
+    # Anyway... The column space for classes is seven, and the column space for
+    # enrollment is 5.
+    regex = re.compile(r'^.*\<tr[^\>]+\>.*?T(?P<cow>itle).*?\<\/tr\>', re.IGNORECASE)
+    match = regex.match(html_str)
+    print '///////////////////////////////////////////////////////////'
+    p = HTMLTableParser()
+    p.feed(html_str)
+    if match:
+        return match.groups()
+    return None
+
 def main():
     ''' 
     Gets the cookies from the WEBLOGIN_URL using the passed params.
@@ -158,17 +238,19 @@ def main():
     cookies = set_url_opener()
     (login_params, ssn) = controller()  # Params from the GET sent to weblogin.
 
+    ##### STAGE 1: LOGIN
     ''' 
     TODO: Handle a) The WEBLOGIN_URL not opening, b) The username/pass being wrong
     '''
     send_post_request(login_params, WEBLOGIN_URL)
 
+    ##### STAGE 2: GO THROUGH REDIRECTS 
+    #
     # Build params for the schedule page.
     # Then query the schedule page.
     sched_params = build_schedule_params(3, ssn)   # TODO: Hard coded!  Change after debugging.
     response = send_post_request(sched_params, SCHEDULE_URL)
     html_str = response.read()
-    print '-----------------------------------------------\n'
 
     # Now that we're here, we don't give a crap about javascript, so we'll need
     # to refresh the page with the silly fake cookie they gave us.
@@ -178,17 +260,23 @@ def main():
     redirect_link = parse_redirect_action(html_str)
     response = send_post_request(redir_params, redirect_link)
     html_str = response.read()
-    print html_str
-    print '-----------------------------------------------\n'
 
+    ##### STAGE 3: GET PAGE FOR SSN
+    #
     final_params = parse_hidden_params(html_str)
     # This is a bit of a hack.  The page requires 'get args'
     final_params['get_args'] = urllib.urlencode(sched_params)
-    print final_params['get_args']
     redirect_link = parse_redirect_action(html_str)
     response = send_post_request(final_params, redirect_link)
+    html_str = response.read()
 
+    ##### STAGE 4: PARSE PAGE FOR ENROLLMENT COUNT
     # If we're here, then we have the page!
+    info = parse_course_info(html_str)
+    print '\n////////////////////////////////////////////////////\n'
+    print info
+
 
 if __name__ == '__main__':
     main()
+    #parse_course_info(open('test.html', 'r').read())
