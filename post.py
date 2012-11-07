@@ -83,20 +83,33 @@ def parse_hidden_params(html_str):
     with the post.
     '''
     params = {}
-    matches = re.split(r'(\<input\s+type="?hidden"?.*?\>)', html_str)
+    matches = re.split(r'(\<input\s+type="?hidden"?[^\>]+\>)', html_str)
     for line in matches:
         p = re.match(r'^.*?name="?(?P<name>[^"]+?)"?\s+value="(?P<value>[^"]+?)"', line)
         if p:
             params[p.group('name')] = p.group('value')
     return params
 
-def parse_rediret_action(html_str):
+def parse_redirect_action(html_str):
     '''
     This is meant to handle the case when the user has to be redirected by one
     of those silly "continue" buttons.  It usually has a link under the
     parameter labeled "action" and we need to parse it out of there.
+
+    This is making a huge assumption: That we're only going to encounter one
+    redirecto button on the page.  This might (maybe) need to be remedied later.
     '''
-    pass
+    #
+    #  <form method=post action="https://weblogin.washington.edu" name=relay>
+    #
+    html_str = "".join(html_str.splitlines())
+    regex = re.compile(r'^.*?\<form\s+method="?post"?\s+action="(?P<link>[^"]+?)"\s+name="?relay')
+    match = regex.match(html_str)
+
+    if match:
+        return match.group('link')
+    else:
+        return ""
 
 def set_url_opener():
     '''
@@ -107,13 +120,14 @@ def set_url_opener():
     cookie_handler = urllib2.HTTPCookieProcessor(cookies)
     url_opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cookies))
     urllib2.install_opener(url_opener)
+    return cookies
 
-def login_weblogin(params):
+def send_post_request(params, link):
     '''
     Logs the user into weblogin.
     '''
     post_data_encoded = urllib.urlencode(params)
-    request = urllib2.Request(WEBLOGIN_URL, post_data_encoded, HTTP_HEADERS)
+    request = urllib2.Request(link, post_data_encoded, HTTP_HEADERS)
     return urllib2.urlopen(request)
 
 def build_schedule_params(qtr_index, sln):
@@ -131,11 +145,6 @@ def build_schedule_params(qtr_index, sln):
     params['SLN'] = sln
     return params
 
-def get_schedule_page_html(params):
-    post_data_encoded = urllib.urlencode(params)
-    request = urllib2.Request(SCHEDULE_URL, post_data_encoded, HTTP_HEADERS)
-    return urllib2.urlopen(request)
-
 def main():
     ''' 
     Gets the cookies from the WEBLOGIN_URL using the passed params.
@@ -144,29 +153,40 @@ def main():
     # from the POST request.  TODO: Should we pass in the cookie jar
     # to be able to read it later?  If we're automating and this is
     # all in a loop, we'll need to be able to clear expired cookies.
-    set_url_opener()
-    params = controller()  # Params from the GET sent to weblogin.
+    cookies = set_url_opener()
+    login_params = controller()  # Params from the GET sent to weblogin.
 
     ''' 
     TODO: Handle a) The WEBLOGIN_URL not opening, b) The username/pass being wrong
     '''
-    response = login_weblogin(params)
-    print response.read()   # to check we've logged in (debug.  remove later.)
-
-    print '-----------------------------------------------\n'
+    send_post_request(login_params, WEBLOGIN_URL)
 
     # Build params for the schedule page.
-    params = build_schedule_params(3, 10180)   # TODO: Hard coded!  Change after debugging.
-    response = get_schedule_page_html(params)
+    # Then query the schedule page.
+    sched_params = build_schedule_params(3, 10180)   # TODO: Hard coded!  Change after debugging.
+    response = send_post_request(sched_params, SCHEDULE_URL)
     html_str = response.read()
-    print html_str
+    print '-----------------------------------------------\n'
 
     # Now that we're here, we don't give a crap about javascript, so we'll need
     # to refresh the page with the silly fake cookie they gave us.
-    params = parse_hidden_params(html_str)
-    print params
-
+    #
+    # Then we'll have to go through one more button and that should be it.
+    redir_params = parse_hidden_params(html_str)
+    redirect_link = parse_redirect_action(html_str)
+    response = send_post_request(redir_params, redirect_link)
+    html_str = response.read()
+    print html_str
     print '-----------------------------------------------\n'
+
+    final_params = parse_hidden_params(html_str)
+    # This is a bit of a hack.  The page requires 'get args'
+    final_params['get_args'] = urllib.urlencode(sched_params)
+    print final_params['get_args']
+    redirect_link = parse_redirect_action(html_str)
+    response = send_post_request(final_params, redirect_link)
+
+    # If we're here, then we have the page!
 
 if __name__ == '__main__':
     main()
