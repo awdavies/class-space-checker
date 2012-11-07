@@ -83,9 +83,9 @@ def parse_hidden_params(html_str):
     with the post.
     '''
     params = {}
-    matches = re.split(r'(\<input\s+type="hidden".*?\>)', html_str)
+    matches = re.split(r'(\<input\s+type="?hidden"?.*?\>)', html_str)
     for line in matches:
-        p = re.match(r'^.*?name="(?P<name>.*?)"\s+value="(?P<value>.*?)"', line)
+        p = re.match(r'^.*?name="?(?P<name>[^"]+?)"?\s+value="(?P<value>[^"]+?)"', line)
         if p:
             params[p.group('name')] = p.group('value')
     return params
