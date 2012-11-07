@@ -1,3 +1,4 @@
+import re
 import urllib
 import urllib2
 
@@ -31,20 +32,32 @@ def login_get():
     '''
     Gets the login page with a get request (so we can parse the bogus header
     values that determine how long we've been on the page and such).
-
-    Then returns the dictionary of post parameters.
     '''
     request = urllib2.Request(url=url, data=None, headers=HTTP_HEADERS)
     response = urllib2.urlopen(request)
     html_str = response.read()
     return html_str
 
-def main():
-    pass
+def params_parse(msg):
+    matches = re.split(r'(\<input\s+type="hidden".*?\>)', msg)
+    params = {}
+    for line in matches:
+        p = re.match(r'^.*?name="(?P<name>.*?)"\s+value="(?P<value>.*?)"', line)
+        if p:
+            params[p.group('name')] = p.group('value')
+    return params
 
+def main():
 # These will be used later for posting data!
 # post_data_encoded = urllib.urlencode(post_data)
 # request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
 # response = urllib2.urlopen(request)
+    login_page = login_get()
+    params = params_parse(login_page)
+    params['user'] = post_data['user']
+    params['password'] = post_data['password']
+    post_data_encoded = utllib.urlencode(params)
+    print params
 
-print login_get()
+if __name__ == '__main__':
+    main()
