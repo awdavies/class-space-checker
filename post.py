@@ -1,4 +1,6 @@
 import re
+import optparse
+import sys
 import urllib
 import urllib2
 
@@ -18,6 +20,28 @@ post_data = {
     "user": "sirlancelot", 
     "password": "SpamandEggs",
 }
+
+def controller():
+     #Create instance of OptionParser Module, included in Standard Library
+    p = optparse.OptionParser(description='Checks space in SLN classes',
+                              prog='sched-checker',
+                              version='0.1',
+                              usage= '%prog [username] [pass]')
+    p.add_option('--user','-u', help='User name')
+    p.add_option('--password', '-p', help='Password')
+
+    options, arguments = p.parse_args()
+
+    print options.user
+    print options.password
+
+    # Decode to the appropriate base.
+    if options.user and options.password:
+        return params_parse(login_get())
+
+    p.print_help()
+    sys.exit(1)
+
 
 '''
     They have a bunch of bogus parameters sent
@@ -48,16 +72,14 @@ def params_parse(msg):
     return params
 
 def main():
-# These will be used later for posting data!
-# post_data_encoded = urllib.urlencode(post_data)
-# request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
-# response = urllib2.urlopen(request)
-    login_page = login_get()
-    params = params_parse(login_page)
-    params['user'] = post_data['user']
-    params['password'] = post_data['password']
-    post_data_encoded = utllib.urlencode(params)
+    params = controller()
+    post_data_encoded = urllib.urlencode(params)
+
+    # Get the url again with a POST
+    request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
+    response = urllib2.urlopen(request)
     print params
+    print response.read()
 
 if __name__ == '__main__':
     main()
