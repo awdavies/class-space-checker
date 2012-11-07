@@ -15,12 +15,6 @@ url = "https://weblogin.washington.edu/"
 # Some fake headers so they think we have JS and the like.
 HTTP_HEADERS = {"User-Agent":"Mozilla/4.0 (compatible; MSIE 5.5;Windows NT)"}
 
-# Change this later!
-post_data = {
-    "user": "sirlancelot", 
-    "password": "SpamandEggs",
-}
-
 def controller():
      #Create instance of OptionParser Module, included in Standard Library
     p = optparse.OptionParser(description='Checks space in SLN classes',
@@ -34,21 +28,12 @@ def controller():
 
     # Decode to the appropriate base.
     if options.user and options.password:
-        return params_parse(login_get(), user=options.user,
-                            password=options.password)
+        return params_parse(login_get(), options.user, options.password)
 
     p.print_help()
     sys.exit(1)
 
 
-'''
-    They have a bunch of bogus parameters sent
-    through the website once you log in for the
-    first time.  We'll need to get the whole page and
-    parse through turning each one of these into the
-    member of a dictionary so that we can get through
-    with the post.
-'''
 
 def login_get():
     '''
@@ -61,26 +46,33 @@ def login_get():
     return html_str
 
 def params_parse(html_str, user, password):
-    matches = re.split(r'(\<input\s+type="hidden".*?\>)', html_str)
+    '''
+    They have a bunch of bogus parameters sent
+    through the website once you log in for the
+    first time.  We'll need to get the whole page and
+    parse through turning each one of these into the
+    member of a dictionary so that we can get through
+    with the post.
+    '''
     params = {}
+    params['user']     = user
+    params['pass'] = password
+    matches = re.split(r'(\<input\s+type="hidden".*?\>)', html_str)
     for line in matches:
         p = re.match(r'^.*?name="(?P<name>.*?)"\s+value="(?P<value>.*?)"', line)
         if p:
-            print p.group('name') + ": " + p.group('value')
             params[p.group('name')] = p.group('value')
 
-    params['user']     = user
-    params['password'] = password
     return params
 
 def main():
     params = controller()
     post_data_encoded = urllib.urlencode(params)
+    print post_data_encoded
 
     # Get the url again with a POST
     #request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
     #response = urllib2.urlopen(request)
-    print params
     #print response.read()
 
 if __name__ == '__main__':
