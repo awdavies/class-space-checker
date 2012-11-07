@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 '''
 TODO LIST (Apart from inline todos)
 
@@ -48,17 +49,18 @@ def controller():
     )
     p.add_option('--user','-u', help='User name')
     p.add_option('--password', '-p', help='Password')
+    p.add_option('--ssn', '-s', help='Class SSN Number')
 
     options, arguments = p.parse_args()
 
     # Decode to the appropriate base.
-    if options.user and options.password:
+    if options.user and options.password and options.ssn:
         params = parse_hidden_params(
             weblogin_get_html(), 
         )
         params['user'] = options.user
         params['pass'] = options.password
-        return params
+        return params, ssn
 
     p.print_help()
     sys.exit(1)
@@ -154,7 +156,7 @@ def main():
     # to be able to read it later?  If we're automating and this is
     # all in a loop, we'll need to be able to clear expired cookies.
     cookies = set_url_opener()
-    login_params = controller()  # Params from the GET sent to weblogin.
+    (login_params, ssn) = controller()  # Params from the GET sent to weblogin.
 
     ''' 
     TODO: Handle a) The WEBLOGIN_URL not opening, b) The username/pass being wrong
@@ -163,7 +165,7 @@ def main():
 
     # Build params for the schedule page.
     # Then query the schedule page.
-    sched_params = build_schedule_params(3, 10180)   # TODO: Hard coded!  Change after debugging.
+    sched_params = build_schedule_params(3, ssn)   # TODO: Hard coded!  Change after debugging.
     response = send_post_request(sched_params, SCHEDULE_URL)
     html_str = response.read()
     print '-----------------------------------------------\n'
