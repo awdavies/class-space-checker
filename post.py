@@ -53,11 +53,12 @@ def controller():
 
     # Decode to the appropriate base.
     if options.user and options.password:
-        params = parse_weblogin_params(
+        params = parse_hidden_params(
             weblogin_get_html(), 
         )
         params['user'] = options.user
         params['pass'] = options.password
+        return params
 
     p.print_help()
     sys.exit(1)
