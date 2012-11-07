@@ -68,12 +68,12 @@ def params_parse(html_str, user, password):
 def main():
     params = controller()
     post_data_encoded = urllib.urlencode(params)
-    print post_data_encoded
 
     # Get the url again with a POST
-    #request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
-    #response = urllib2.urlopen(request)
-    #print response.read()
+    request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
+    response = urllib2.urlopen(request)
+    print response.read()
+    print post_data_encoded
 
 if __name__ == '__main__':
     main()
