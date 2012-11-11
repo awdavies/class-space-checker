@@ -213,6 +213,11 @@ def parse_table_headers(tags, html_str):
 
     { u'Foo': u'22', u'Bar': u'64' }
     '''
+
+    regex = re.compile(
+        "^.*(?P<header>{0})".format('|'.join(tags)),
+        re.IGNORECASE,
+    )
     page = BeautifulSoup(html_str)
     # Remove all <br /> tags, because they'll only screw things up.
     for br in page.findAll('br'):
@@ -237,11 +242,7 @@ def parse_table_headers(tags, html_str):
             for header in headers:
                 # This will only match after converting the unicode to a regular
                 # string.  There's likely a far better way to do this.
-                m = re.match(
-                    regex,
-                    str(header.string), 
-                    re.IGNORECASE
-                )
+                m = re.match(regex, str(header.string))
 
                 '''
                 If m was a match, then we'll simply pluck the element directly
@@ -255,7 +256,7 @@ def parse_table_headers(tags, html_str):
                     ].findAll('td')[column_index]
                     string = unwrap_html_contents(next_row_elmnt)
                     if string is not None:
-                        info[m.group('tag')] = string.strip()
+                        info[m.group('header')] = string.strip()
                 column_index += 1
             row_index += 1
     return info
