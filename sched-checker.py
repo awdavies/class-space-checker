@@ -88,12 +88,12 @@ def parse_hidden_params(html_str):
     member of a dictionary so that we can get through
     with the post.
     '''
+
     params = {}
-    matches = re.split(r'(\<input\s+type="?hidden"?[^\>]+\>)', html_str)
-    for line in matches:
-        p = re.match(r'^.*?name="?(?P<name>[^"]+?)"?\s+value="(?P<value>[^"]+?)"', line)
-        if p:
-            params[p.group('name')] = p.group('value')
+    page = BeautifulSoup(html_str)
+    inputs = [p for p in page.findAll('input') if p['type'] == u'hidden']
+    for input_ in inputs:
+        params[input_['name']] = input_['value']
     return params
 
 def parse_redirect_action(html_str):
@@ -221,7 +221,6 @@ def main():
     redirect_link = parse_redirect_action(html_str)
     response = send_post_request(final_params, redirect_link)
     html_str = response.read()
-    print html_str
 
     ##### STAGE 4: PARSE PAGE FOR ENROLLMENT COUNT
     # If we're here, then we have the page!
