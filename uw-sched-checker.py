@@ -182,21 +182,36 @@ def unwrap_html_contents(elmnt):
                 return c.string
     return None
 
-def parse_table_headers(regex, html_str):
+def parse_table_headers(tags, html_str):
     '''
-    This is for parsing the class info on the ASP pages hosted by UW.
-    Since they all follow a basic format, we should be able to go through
-    and find out the three things we want to know:
+    This is for getting the data directly under the set of table headers on a
+    page (for now).  By that I mean if a table passed was rendered such as this:
 
-    * The class title (for display, and for if/when we decide to send this thing
-      to people's emails.
+     _____ _____
+    | Foo | Bar |
+     ----- -----
+    | 22  | 64  |
+     ----- -----
 
-    * The capacity for the class.
+    Then the data under 'Foo' would be 22, and the data under 'Bar' would be 64.
 
-    * The enrollment count for the class.
+    The arguments required are a list of table header names (case insensitive) 
+    that the callee intends to find in at most one of the table headers (the 
+    last matching table header will have its value stored in the dictionary for
+    now).
 
-    From these three things we should be able to get all the data we need.  If
-    not, then we'll simply add more things for which we will try to parse.
+    For example, if we simply want the data under the headers 'Foo' and 'Bar,'
+    we would pass ['Foo', 'Bar'] as the first parameter, and then if 'Foo' and
+    'Bar' were found anywhere within the table headers of the html string that
+    renders the example above, then as long as said value is not None, the value
+    of the corresponding string that led to the match will be a key within the
+    returned dictionary, with the value as the string directly below the header.
+
+    From the above example, calling parse_table_headers(['Foo', 'Bar'], html),
+    where html would render something similar to the above, the returned
+    dictionary would be:
+
+    { u'Foo': u'22', u'Bar': u'64' }
     '''
     page = BeautifulSoup(html_str)
     # Remove all <br /> tags, because they'll only screw things up.
@@ -299,7 +314,7 @@ def main():
     ##### STAGE 3: PARSE PAGE FOR ENROLLMENT COUNT
     #
     # If we're here, then we have the page!
-    info = parse_table_headers(r'^.*?(?P<tag>SLN|Title|Enrollment|Limit)', html_str)
+    info = parse_table_headers(['SLN', 'Title', 'Enrollment', 'Limit'], html_str)
     print "CLASS INFO:"
     sorted_keys = info.keys()
     sorted_keys.sort()
