@@ -17,9 +17,9 @@ TODO LIST (Apart from inline todos)
   out ASAP.
 
 '''
+from BeautifulSoup import BeautifulSoup
+
 import cookielib
-from HTMLParser import HTMLParser
-from htmlentitydefs import name2codepoint
 import datetime
 import optparse
 import re
@@ -44,7 +44,7 @@ HTTP_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
-def controller():
+def parse_options():
      #Create instance of OptionParser Module, included in Standard Library
     p = optparse.OptionParser(
         description='Checks space in SLN classes',
@@ -170,24 +170,19 @@ def parse_course_info(html_str):
 
     * The enrollment count for the class.
 
-    From these threee things we should be able to get all the data we need.  If
-    not, then we'll simply add more things for whch we will try to parse.
-
-    This expects a string as input, and returns a matched regex class as output,
-    which can be None if nonthing was matched properly.
+    From these three things we should be able to get all the data we need.  If
+    not, then we'll simply add more things for which we will try to parse.
     '''
+
     return None
 
 def main():
-    ''' 
-    Gets the cookies from the WEBLOGIN_URL using the passed params.
-    '''
     # Set the cookie handler so we can pass around cookies 
     # from the POST request.  TODO: Should we pass in the cookie jar
     # to be able to read it later?  If we're automating and this is
     # all in a loop, we'll need to be able to clear expired cookies.
     cookies = set_url_opener()
-    opts = controller()  # Params from the GET sent to weblogin.
+    opts = parse_options()
 
     ##### STAGE 1: LOGIN
     login_params = parse_hidden_params(
