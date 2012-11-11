@@ -150,7 +150,7 @@ def build_schedule_params(qtr_index, sln):
     '''
     year = datetime.datetime.now().year
     qtr = QUARTERS[qtr_index]
-    if qtr_index == 3:   # if this is winter.
+    if qtr_index == 3:   # if this is winter, we'll be lookin at next year.
         year += 1
     params = {}
     params['QTRYR'] = "{0} {1}".format(qtr, year)
