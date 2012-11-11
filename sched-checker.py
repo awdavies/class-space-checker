@@ -103,19 +103,15 @@ def parse_redirect_action(html_str):
     parameter labeled "action" and we need to parse it out of there.
 
     This is making a huge assumption: That we're only going to encounter one
-    redirecto button on the page.  This might (maybe) need to be remedied later.
+    redirecto button on the page.  This might need to be remedied later.
     '''
-    #
-    #  <form method=post action="https://weblogin.washington.edu" name=relay>
-    #
-    html_str = "".join(html_str.splitlines())
-    regex = re.compile(r'^.*?\<form\s+method="?post"?\s+action="(?P<link>[^"]+?)"\s+name="?relay')
-    match = regex.match(html_str)
 
-    if match:
-        return match.group('link')
-    else:
-        return ""
+    # This should probably make sure the page is a link to UW weblogin
+    # or maybe even simpler, like checking to see if it links to a different
+    # page, or a set of pages which happens to include UW weblogin.
+    page = BeautifulSoup(html_str)
+    form = page.form
+    return form['action']
 
 def set_url_opener():
     '''
@@ -157,6 +153,37 @@ def build_schedule_params(qtr_index, sln):
     params['SLN'] = sln
     return params
 
+def unwrap_html_contents(elmnt):
+    '''
+    Recursively tries to unwrap the data from within an element until there are
+    no more layers to unwrap.  This shouldn't run into any infinite loops
+    as eventually an element will be empty or will contain some sort of
+    contents.
+
+    This will return the first non-None object it see, so this is more for
+    taking elements out of nested tags, like:
+
+    <tt>
+        <a>
+            <i>
+                <strong>
+                    Foober Bazzle-Snazz
+                </string>
+            </i>
+        </a>
+    </tt>
+
+    Which would be a pain to hard code.
+    '''
+    contents = elmnt.contents
+    while contents:
+        for c in contents:
+            if c.string is None:
+                return unwrap_html_contents(c)
+            else:
+                return c.string
+    return None
+
 def parse_course_info(html_str):
     '''
     This is for parsing the class info on the ASP pages hosted by UW.
@@ -173,8 +200,52 @@ def parse_course_info(html_str):
     From these three things we should be able to get all the data we need.  If
     not, then we'll simply add more things for which we will try to parse.
     '''
+    page = BeautifulSoup(html_str)
+    # Remove all <br /> tags, because they'll only screw things up.
+    for br in page.findAll('br'):
+        br.extract()
+    # This is a bit of a hack, butif we parse the page again, all the removed br
+    # tags will leave contiguous strings in their wake.  This will allow us to
+    # parse things like the current enrollment and room capacity.
+    page = BeautifulSoup(str(page))
+    info = {}
 
-    return None
+    # Go through the tables and find any class info (this loop is why I hate
+    # tables....).  We'll iterate through all of the rows and columns, keeping
+    # track of where we are so we can access other sections of the rows and
+    # columns if we encounter the types of elements we're looking for.
+    tables = page.findAll('table')  
+    for table in tables:
+        rows = table.findAll('tr')
+        row_index = 0
+        for row in rows:
+            headers = row.findAll('th')
+            column_index = 0
+            for header in headers:
+                # This will only match after converting the unicode to a regular
+                # string.  There's likely a far better way to do this.
+                m = re.match(
+                    r'^.*?(?P<tag>SLN|Title|Enrollment|Limit|Capacity)',
+                    str(header.string), 
+                    re.IGNORECASE
+                )
+
+                '''
+                If m was a match, then we'll simply pluck the element directly
+                under the row and column we were looking for.  After that, if
+                the element under the header is not None, then we have a key and
+                value that can be stored in the info dictionary.
+                '''
+                if m is not None:
+                    next_row_elmnt = rows[
+                        row_index + 1
+                    ].findAll('td')[column_index]
+                    string = unwrap_html_contents(next_row_elmnt)
+                    if string is not None:
+                        info[m.group('tag')] = string.strip()
+                column_index += 1
+            row_index += 1
+    return info
 
 def main():
     # Set the cookie handler so we can pass around cookies 
@@ -216,7 +287,8 @@ def main():
     ##### STAGE 3: GET PAGE FOR SSN
     #
     final_params = parse_hidden_params(html_str)
-    # This is a bit of a hack.  The page requires 'get args'
+    # This is a bit of a hack.  The page requires 'get args.'  Currently
+    # we can't loop around until we finally get redirected through the page.
     final_params['get_args'] = urllib.urlencode(sched_params)
     redirect_link = parse_redirect_action(html_str)
     response = send_post_request(final_params, redirect_link)
