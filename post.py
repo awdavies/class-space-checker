@@ -60,22 +60,21 @@ def controller():
 
     # Decode to the appropriate base.
     if options.user and options.password and options.ssn:
-        params = parse_hidden_params(
-            weblogin_get_html(), 
-        )
-        params['user'] = options.user
-        params['pass'] = options.password
-        return params, options.ssn
-
+        return options
     p.print_help()
     sys.exit(1)
 
-def weblogin_get_html():
+def send_get_request(url):
     '''
-    Gets the login page with a get request (so we can parse the bogus header
-    values that determine how long we've been on the page and such).
+    Gets the page with a get request and returns the string representation of
+    said page.
+
+    TOOD: Add get parameters in case we can't simply send it as a post for some
+    reason (look up examples of this sort of thing occuring as well, just in
+    case any valid GET request with parameters ends up being okay as a POST
+    request as well).
     '''
-    request = urllib2.Request(url=WEBLOGIN_URL, data=None, headers=HTTP_HEADERS)
+    request = urllib2.Request(url=url, data=None, headers=HTTP_HEADERS)
     response = urllib2.urlopen(request)
     html_str = response.read()
     return html_str
@@ -122,6 +121,9 @@ def set_url_opener():
     '''
     Builds a cookie-lovin, url openin machine (pretty simple, but the
     implementation may change later, so it's a function).
+
+    Returns a CookieJar class that is tied to the url opener, just in case
+    we wish to peer into the cookie jar later.
     '''
     cookies = cookielib.CookieJar()
     cookie_handler = urllib2.HTTPCookieProcessor(cookies)
@@ -133,6 +135,8 @@ def send_post_request(params, link):
     '''
     Attempts to open the link using a post request with the passed dictionary of
     params.
+
+    TODO: Document exceptions.
     '''
     post_data_encoded = urllib.urlencode(params)
     request = urllib2.Request(link, post_data_encoded, HTTP_HEADERS)
@@ -183,9 +187,15 @@ def main():
     # to be able to read it later?  If we're automating and this is
     # all in a loop, we'll need to be able to clear expired cookies.
     cookies = set_url_opener()
-    (login_params, ssn) = controller()  # Params from the GET sent to weblogin.
+    opts = controller()  # Params from the GET sent to weblogin.
 
     ##### STAGE 1: LOGIN
+    login_params = parse_hidden_params(
+        send_get_request(WEBLOGIN_URL), 
+    )
+    login_params['user'] = opts.user
+    login_params['pass'] = opts.password
+
     ''' 
     TODO: Handle a) The WEBLOGIN_URL not opening, b) The username/pass being wrong
     '''
@@ -195,7 +205,7 @@ def main():
     #
     # Build params for the schedule page.
     # Then query the schedule page.
-    sched_params = build_schedule_params(3, ssn)   # TODO: Hard coded!  Change after debugging.
+    sched_params = build_schedule_params(3, opts.ssn)   # TODO: Hard coded!  Change after debugging.
     response = send_post_request(sched_params, SCHEDULE_URL)
     html_str = response.read()
 
