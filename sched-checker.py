@@ -225,7 +225,7 @@ def parse_course_info(html_str):
                 # This will only match after converting the unicode to a regular
                 # string.  There's likely a far better way to do this.
                 m = re.match(
-                    r'^.*?(?P<tag>SLN|Title|Enrollment|Limit|Capacity)',
+                    r'^.*?(?P<tag>SLN|Title|Enrollment|Limit)',
                     str(header.string), 
                     re.IGNORECASE
                 )
@@ -246,6 +246,30 @@ def parse_course_info(html_str):
                 column_index += 1
             row_index += 1
     return info
+
+def get_schedule_page(sched_params):
+    response = send_post_request(sched_params, SCHEDULE_URL)
+    html_str = response.read()
+
+    # Now that we're here, we don't give a crap about javascript, so we'll need
+    # to refresh the page with the silly fake cookie they gave us.
+    #
+    # Then we'll have to go through one more button and that should be it.
+    redir_params = parse_hidden_params(html_str)
+    redirect_link = parse_redirect_action(html_str)
+    response = send_post_request(redir_params, redirect_link)
+    html_str = response.read()
+
+    ##### GET PAGE FOR SSN
+    #
+    final_params = parse_hidden_params(html_str)
+    # This is a bit of a hack.  The page requires 'get args.'  Currently
+    # we can't loop around until we finally get redirected through the page.
+    final_params['get_args'] = urllib.urlencode(sched_params)
+    redirect_link = parse_redirect_action(html_str)
+    response = send_post_request(final_params, redirect_link)
+    return response.read()
+
 
 def main():
     # Set the cookie handler so we can pass around cookies 
@@ -272,33 +296,17 @@ def main():
     # Build params for the schedule page.
     # Then query the schedule page.
     sched_params = build_schedule_params(3, opts.ssn)   # TODO: Hard coded!  Change after debugging.
-    response = send_post_request(sched_params, SCHEDULE_URL)
-    html_str = response.read()
-
-    # Now that we're here, we don't give a crap about javascript, so we'll need
-    # to refresh the page with the silly fake cookie they gave us.
+    html_str = get_schedule_page(sched_params)
+    
+    ##### STAGE 3: PARSE PAGE FOR ENROLLMENT COUNT
     #
-    # Then we'll have to go through one more button and that should be it.
-    redir_params = parse_hidden_params(html_str)
-    redirect_link = parse_redirect_action(html_str)
-    response = send_post_request(redir_params, redirect_link)
-    html_str = response.read()
-
-    ##### STAGE 3: GET PAGE FOR SSN
-    #
-    final_params = parse_hidden_params(html_str)
-    # This is a bit of a hack.  The page requires 'get args.'  Currently
-    # we can't loop around until we finally get redirected through the page.
-    final_params['get_args'] = urllib.urlencode(sched_params)
-    redirect_link = parse_redirect_action(html_str)
-    response = send_post_request(final_params, redirect_link)
-    html_str = response.read()
-
-    ##### STAGE 4: PARSE PAGE FOR ENROLLMENT COUNT
     # If we're here, then we have the page!
     info = parse_course_info(html_str)
-    print '\n////////////////////////////////////////////////////\n'
-    print info
+    print "CLASS INFO:"
+    sorted_keys = info.keys()
+    sorted_keys.sort()
+    for key in sorted_keys:
+        print "\t{0}: {1}".format(key, info[key])
 
 
 if __name__ == '__main__':
