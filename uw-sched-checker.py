@@ -158,7 +158,7 @@ def unwrap_html_contents(elmnt):
     as eventually an element will be empty or will contain some sort of
     contents.
 
-    This will return the first non-None object it see, so this is more for
+    This will return the first non-None object it sees, so this is more for
     taking elements out of nested tags, like:
 
     <tt>
@@ -182,7 +182,7 @@ def unwrap_html_contents(elmnt):
                 return c.string
     return None
 
-def parse_course_info(html_str):
+def parse_table_headers(regex, html_str):
     '''
     This is for parsing the class info on the ASP pages hosted by UW.
     Since they all follow a basic format, we should be able to go through
@@ -223,7 +223,7 @@ def parse_course_info(html_str):
                 # This will only match after converting the unicode to a regular
                 # string.  There's likely a far better way to do this.
                 m = re.match(
-                    r'^.*?(?P<tag>SLN|Title|Enrollment|Limit)',
+                    regex,
                     str(header.string), 
                     re.IGNORECASE
                 )
@@ -299,7 +299,7 @@ def main():
     ##### STAGE 3: PARSE PAGE FOR ENROLLMENT COUNT
     #
     # If we're here, then we have the page!
-    info = parse_course_info(html_str)
+    info = parse_table_headers(r'^.*?(?P<tag>SLN|Title|Enrollment|Limit)', html_str)
     print "CLASS INFO:"
     sorted_keys = info.keys()
     sorted_keys.sort()
