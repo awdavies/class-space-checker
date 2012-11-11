@@ -13,6 +13,9 @@ TODO LIST (Apart from inline todos)
   regex.  Perhaps consider an easy way to reimplement this using standard (-ish)
   DOM parsers (n either python or another language).
 
+* Now that we have BeautifulSoup, all of the gross regex code should be phased
+  out ASAP.
+
 '''
 import cookielib
 from HTMLParser import HTMLParser
