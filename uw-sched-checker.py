@@ -274,7 +274,7 @@ def get_schedule_page(sched_params):
     response = send_post_request(redir_params, redirect_link)
     html_str = response.read()
 
-    ##### GET PAGE FOR SSN
+    ##### GET PAGE FOR SLN
     #
     final_params = parse_hidden_params(html_str)
     # This is a bit of a hack.  The page requires 'get args.'  Currently
