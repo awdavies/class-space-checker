@@ -27,46 +27,6 @@ import sys
 import urllib
 import urllib2
 
-class HTMLTableParser(HTMLParser):
-    '''
-    This parses an HTML table and turns it into a big scary array.
-
-    Robustness is not addressed as this whole thing is a big hack....
-
-    we just want to get things running first, then niceties later.
-    '''
-    _table_index = 0
-    _table_row_index = 0
-    _table = []
-    _last_starttag = ""
-    _last_endtag = ""
-
-    def handle_starttag(self, tag, attrs):
-        if tag == 'table':
-            print "TABLE START: ", attrs
-        if tag == 'tr':
-            print '\tTABLE ROW START: ', attrs
-        if tag == 'td' or tag  == 'tt' or tag == 'th':
-            print '\t\tTABLE ELMNT START: ', attrs
-
-    def handle_endtag(self, tag):
-        self._last_endtag = tag
-        if self._last_starttag == self._last_endtag:
-            self._last_starttag = ''
-        if tag == 'table':
-            self._table_index += 1
-            print "TABLE END: "
-        if tag == 'tr':
-            print '\tTABLE ROW END: '
-        if tag == 'td' or tag  == 'tt' or tag == 'th':
-            print '\t\tTABLE ELMNT END: '
-
-    def handle_data(self, data):
-        if self._last_starttag == 'td' or self._last_starttag == 'tt' or \
-           self._last_starttag == 'th' or self._last_starttag == 'a':
-            print "\t\t\tDATA: ", data
-    
-
 # These are the current known strings for time schedule quarters.
 # for now we'll have to have the user specify which one is which.
 # (Spring and Summer I just made up).
@@ -171,7 +131,8 @@ def set_url_opener():
 
 def send_post_request(params, link):
     '''
-    Logs the user into weblogin.
+    Attempts to open the link using a post request with the passed dictionary of
+    params.
     '''
     post_data_encoded = urllib.urlencode(params)
     request = urllib2.Request(link, post_data_encoded, HTTP_HEADERS)
@@ -211,23 +172,6 @@ def parse_course_info(html_str):
     This expects a string as input, and returns a matched regex class as output,
     which can be None if nonthing was matched properly.
     '''
-    html_str = "".join(html_str.splitlines()) 
-    print html_str
-
-    # The holy grail of worst practices here... need to get rid of all the
-    # r'.*?' bits...  Either that or actually use an HTML parser for this.
-    # This is a bad idea, and I should feel bad for trying it.... we need an
-    # array of table data instead.
-    #
-    # Anyway... The column space for classes is seven, and the column space for
-    # enrollment is 5.
-    regex = re.compile(r'^.*\<tr[^\>]+\>.*?T(?P<cow>itle).*?\<\/tr\>', re.IGNORECASE)
-    match = regex.match(html_str)
-    print '///////////////////////////////////////////////////////////'
-    p = HTMLTableParser()
-    p.feed(html_str)
-    if match:
-        return match.groups()
     return None
 
 def main():
@@ -272,6 +216,7 @@ def main():
     redirect_link = parse_redirect_action(html_str)
     response = send_post_request(final_params, redirect_link)
     html_str = response.read()
+    print html_str
 
     ##### STAGE 4: PARSE PAGE FOR ENROLLMENT COUNT
     # If we're here, then we have the page!
