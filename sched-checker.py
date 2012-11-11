@@ -4,17 +4,15 @@ TODO LIST (Apart from inline todos)
 
 * Functions are a bit silly.  Refactor things so this can all run in a loop.
 
-* We need to handle errors for when we can't connect.
+* We need to handle errors for when we can't connect. Throw around exceptions
+  and the like for things like bogus SLN numbers, invalid username/password,
+  etc.
+
+* If there's no password or username, perhaps just ask for them and have the
+  password not show up when it's typed in (like with most other programs.)
 
 * What determines if we can't connect?  Is there a timeout we'll deal with?
   What is it?!
-
-* In the interest of making the install easy for most folks, this is all done in
-  regex.  Perhaps consider an easy way to reimplement this using standard (-ish)
-  DOM parsers (n either python or another language).
-
-* Now that we have BeautifulSoup, all of the gross regex code should be phased
-  out ASAP.
 
 '''
 from BeautifulSoup import BeautifulSoup
@@ -54,12 +52,12 @@ def parse_options():
     )
     p.add_option('--user','-u', help='User name')
     p.add_option('--password', '-p', help='Password')
-    p.add_option('--ssn', '-s', help='Class SSN Number')
+    p.add_option('--sln', '-s', help='Class SLN Number')
 
     options, arguments = p.parse_args()
 
     # Decode to the appropriate base.
-    if options.user and options.password and options.ssn:
+    if options.user and options.password and options.sln:
         return options
     p.print_help()
     sys.exit(1)
@@ -295,7 +293,7 @@ def main():
     #
     # Build params for the schedule page.
     # Then query the schedule page.
-    sched_params = build_schedule_params(3, opts.ssn)   # TODO: Hard coded!  Change after debugging.
+    sched_params = build_schedule_params(3, opts.sln)   # TODO: Hard coded!  Change after debugging.
     html_str = get_schedule_page(sched_params)
     
     ##### STAGE 3: PARSE PAGE FOR ENROLLMENT COUNT
@@ -308,7 +306,5 @@ def main():
     for key in sorted_keys:
         print "\t{0}: {1}".format(key, info[key])
 
-
 if __name__ == '__main__':
     main()
-    #parse_course_info(open('test.html', 'r').read())
