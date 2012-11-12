@@ -16,6 +16,7 @@ TODO LIST (Apart from inline todos)
 
 '''
 import datetime
+import getpass
 import optparse
 import re
 import sys
@@ -33,24 +34,55 @@ WEBLOGIN_URL = "https://weblogin.washington.edu/"
 # This is the url for the time schedule server (ASP... gross).
 SCHEDULE_URL = "https://sdb.admin.washington.edu/timeschd/uwnetid/sln.asp"
 
+# The cookie domains we're interested in.  If these expire, they need to be
+# reacquired (that rhymes!).
+WEBLOGIN_REGEX = re.compile(r'weblogin.washington.edu', re.IGNORECASE)
+
+SDB_ADMIN_PUB_DOMAIN = 'sdb.admin.washington.edu'
+SDB_ADMIN_SESSION_DOMAIN = '.sdb.admin.washington.edu'
 
 def parse_options():
-     #Create instance of OptionParser Module, included in Standard Library
+
+    def sln_callback(option, opt, value, parser):
+        setattr(parser.values, option.dest, value.split(','))
+
+    # Create instance of OptionParser Module, included in Standard Library
     p = optparse.OptionParser(
         description='Checks space in SLN classes',
         prog='sched-checker',
         version='0.1',
-        usage= '%prog [username] [pass]'
+        usage= '%prog [username] [pass]',
     )
     p.add_option('--user','-u', help='User name')
-    p.add_option('--password', '-p', help='Password')
-    p.add_option('--sln', '-s', help='Class SLN Number')
+    p.add_option(
+        '--password', 
+        '-p', 
+        help='Password. If ommitted, will be requested as user input.'
+    )
+    p.add_option(
+        '--sln', 
+        '-s', 
+        type='string',
+        action="callback", 
+        callback=sln_callback, 
+        help='Class SLN Number'
+    )
 
     options, arguments = p.parse_args()
 
-    # Decode to the appropriate base.
-    if options.user and options.password and options.sln:
-        return options
+    if not options.user:
+        setattr(options, 'user', raw_input('[?] UW Netid: '))
+    if not options.password:
+        setattr(options, 'password', getpass.getpass('[?] Password: '))
+    if not options.sln:
+        setattr(
+            options, 
+            'sln', 
+            raw_input('[?] Class SLNs (separated by comma, no spaces): ')
+        )
+
+    return options
+
     p.print_help()
     sys.exit(1)
 
@@ -70,8 +102,30 @@ def build_schedule_params(qtr_index, sln):
     return params
 
 def get_schedule_page(sched_params):
-    response = wu.send_post_request(sched_params, SCHEDULE_URL)
+    '''
+    Logs in through the schedule page by sending a relay to the pub-cookie
+    through the relay atop the page.
+    '''
+    html_str = wu.send_get_request(SCHEDULE_URL, sched_params).read()
+    print '=============================================================='
+    print html_str
+    print '=============================================================='
+    params = wu.parse_hidden_params(html_str)
+    redirect_link = params['relay_url']
+    '''
+    Send a post request to the 'document.onload' function using a POST so we can
+    get our session id and load the page properly.
+    '''
+    html_str = wu.send_post_request(redirect_link).read()
+    print '=============================================================='
+    print html_str
+
+    sys.exit(1)
+    '''
+    response = wu.send_get_request(SCHEDULE_URL, sched_params)
     html_str = response.read()
+
+    print html_str
 
     # Now that we're here, we don't give a crap about javascript, so we'll need
     # to refresh the page with the silly fake cookie they gave us.
@@ -79,18 +133,49 @@ def get_schedule_page(sched_params):
     # Then we'll have to go through one more button and that should be it.
     redir_params = wu.parse_hidden_params(html_str)
     redirect_link = wu.parse_redirect_action(html_str)
-    response = wu.send_post_request(redir_params, redirect_link)
+    print redirect_link
+    response = wu.send_post_request(redirect_link, redir_params)
     html_str = response.read()
+
 
     ##### GET PAGE FOR SLN
     #
     final_params = wu.parse_hidden_params(html_str)
     # This is a bit of a hack.  The page requires 'get args.'  Currently
     # we can't loop around until we finally get redirected through the page.
+    # right now this needs to be changed since this exposing implementation
+    # details of web_util.py!
     final_params['get_args'] = urllib.urlencode(sched_params)
     redirect_link = wu.parse_redirect_action(html_str)
-    response = wu.send_post_request(final_params, redirect_link)
-    return response.read()
+    print redirect_link
+    response = wu.send_post_request(redirect_link, final_params)
+    html_str = response.read()
+    sys.exit(1)
+    return html_str
+    '''
+
+def uw_netid_login(netid, password):
+    login_params = wu.parse_hidden_params(wu.send_get_request(WEBLOGIN_URL))
+    login_params['user'] = netid
+    login_params['pass'] = password
+
+    ''' 
+    TODO: Handle a) The WEBLOGIN_URL not opening, b) The username/pass being wrong
+    '''
+    wu.send_post_request(WEBLOGIN_URL, login_params)
+
+def validate_login_cookie(cookie_jar, user, password):
+    '''
+    This determines if any of the necessary cookies are expired, and if so, we
+    will reacquire them.
+    '''
+    login = True
+    for cookie in cookie_jar:
+        if re.match(WEBLOGIN_REGEX, cookie.domain):
+            if not cookie.is_expired():
+                login = False
+    if login:
+        uw_netid_login(user, password)
 
 def main():
     # Set the cookie handler so we can pass around cookies 
@@ -100,32 +185,17 @@ def main():
     cookies = wu.set_url_opener()
     opts = parse_options()
 
-    ##### STAGE 1: LOGIN
-    login_params = wu.parse_hidden_params(wu.send_get_request(WEBLOGIN_URL))
-    login_params['user'] = opts.user
-    login_params['pass'] = opts.password
+    for sln in opts.sln:
+        # Make sure none of the cookies are expired.  Re-login if necessary.
+        validate_login_cookie(cookies, opts.user, opts.password)
 
-    ''' 
-    TODO: Handle a) The WEBLOGIN_URL not opening, b) The username/pass being wrong
-    '''
-    wu.send_post_request(login_params, WEBLOGIN_URL)
-
-    ##### STAGE 2: GO THROUGH REDIRECTS 
-    #
-    # Build params for the schedule page.
-    # Then query the schedule page.
-    sched_params = build_schedule_params(3, opts.sln)   # TODO: Hard coded!  Change after debugging.
-    html_str = get_schedule_page(sched_params)
-    
-    ##### STAGE 3: PARSE PAGE FOR ENROLLMENT COUNT
-    #
-    # If we're here, then we have the page!
-    info = wu.parse_table_headers(['SLN', 'Title', 'Enrollment', 'Limit'], html_str)
-    print "CLASS INFO:"
-    sorted_keys = info.keys()
-    sorted_keys.sort()
-    for key in sorted_keys:
-        print "\t{0}: {1}".format(key, info[key])
+        sched_params = build_schedule_params(3, sln)   # TODO: Hard coded! Change after debugging.
+        html_str = get_schedule_page(sched_params)
+        
+        ##### STAGE 3: PARSE PAGE FOR ENROLLMENT COUNT
+        #
+        # If we're here, then we have the page!
+        #info = wu.parse_table_headers(['SLN', 'Title', 'Enrollment', 'Limit'], html_str)
 
 if __name__ == '__main__':
     main()

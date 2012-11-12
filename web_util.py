@@ -10,20 +10,24 @@ HTTP_HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
-def send_get_request(url):
+def send_get_request(url, params={}):
     '''
-    Gets the page with a get request and returns the string representation of
-    said page.
+    Gets the page with a get request and returns the response of
+    said page, see docs for urllib and urllib2 to read more about this response
+    object.
 
     TOOD: Add get parameters in case we can't simply send it as a post for some
     reason (look up examples of this sort of thing occuring as well, just in
     case any valid GET request with parameters ends up being okay as a POST
     request as well).
     '''
+    get_data_encoded = urllib.urlencode(params)
+    if get_data_encoded:
+        url = "?".join([url, get_data_encoded])
+    
     request = urllib2.Request(url=url, data=None, headers=HTTP_HEADERS)
     response = urllib2.urlopen(request)
-    html_str = response.read()
-    return html_str
+    return response
 
 def parse_hidden_params(html_str):
     '''
@@ -44,11 +48,12 @@ def parse_hidden_params(html_str):
 def parse_redirect_action(html_str):
     '''
     This is meant to handle the case when the user has to be redirected by one
-    of those silly "continue" buttons.  It usually has a link under the
-    parameter labeled "action" and we need to parse it out of there.
+    of those silly 'document.onload' functions.  It's usually just sending a
+    form with a bunch of hidden parameters.
 
-    This is making a huge assumption: That we're only going to encounter one
-    redirecto button on the page.  This might need to be remedied later.
+    Note this will only work if there is one form on the page.  It will refuse
+    to work if there is no 'onload' function atop the page that ends in a submit
+    function.
     '''
 
     # This should probably make sure the page is a link to UW weblogin
@@ -56,7 +61,21 @@ def parse_redirect_action(html_str):
     # page, or a set of pages which happens to include UW weblogin.
     page = BeautifulSoup(html_str)
     form = page.form
-    return form['action']
+    body = page.body
+    try:
+        submit_func = body['onload']
+    except KeyError:
+        return None
+    if not re.match(r'^.*?submit\(\)$', submit_func):
+        return None
+
+    if form is not None:
+        try:
+            link = form['action']
+            return link
+        except KeyError:
+            return None
+    return None
 
 def set_url_opener():
     '''
@@ -72,7 +91,7 @@ def set_url_opener():
     urllib2.install_opener(url_opener)
     return cookies
 
-def send_post_request(params, link):
+def send_post_request(url, params={}):
     '''
     Attempts to open the link using a post request with the passed dictionary of
     params.
@@ -80,7 +99,8 @@ def send_post_request(params, link):
     TODO: Document exceptions.
     '''
     post_data_encoded = urllib.urlencode(params)
-    request = urllib2.Request(link, post_data_encoded, HTTP_HEADERS)
+    request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
+    print request.get_full_url()
     return urllib2.urlopen(request)
 
 def unwrap_html_contents(elmnt):
