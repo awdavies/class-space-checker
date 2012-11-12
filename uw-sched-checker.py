@@ -79,7 +79,9 @@ def parse_options():
         setattr(
             options, 
             'sln', 
-            raw_input('[?] Class SLNs (separated by comma, no spaces): ')
+            raw_input(
+                '[?] Class SLNs (separated by comma, no spaces): '
+            ).split(',')
         )
 
     return options
@@ -144,6 +146,23 @@ def validate_login_cookie(cookie_jar, user, password):
     if login:
         uw_netid_login(user, password)
 
+def print_class_info(info):
+    '''
+    Prints out the course info specific to how it has been parsed in the main
+    loop.  TODO: Maybe a course could be a class instead of a dictionary?
+    '''
+    if info == {}:
+        return
+    status = [u'CLOSED', u'OPEN'][int(info['Enrollment']) < int(info['Limit'])]
+    info_str = u"[{0} ({1})]<{2}/{3}>: Status = {4}".format(
+        info['Title'], 
+        info['Course'],
+        info['Enrollment'],
+        info['Limit'],
+        status,
+    )
+    print info_str
+
 def main():
     # Set the cookie handler so we can pass around cookies 
     # from the POST request.  TODO: Should we pass in the cookie jar
@@ -158,12 +177,12 @@ def main():
 
         sched_params = build_schedule_params(3, sln)   # TODO: Hard coded! Change after debugging.
         html_str = get_schedule_page(sched_params)
+        info = wu.parse_table_headers(
+            ['SLN', 'Course', 'Title', 'Enrollment', 'Limit'], 
+            html_str
+        )
+        print_class_info(info)
 
-        ##### STAGE 3: PARSE PAGE FOR ENROLLMENT COUNT
-        #
-        # If we're here, then we have the page!
-        info = wu.parse_table_headers(['SLN', 'Title', 'Enrollment', 'Limit'], html_str)
-        print info
         # This is here because apparently quick successive
         # requests make the server cry.
         time.sleep(6)  

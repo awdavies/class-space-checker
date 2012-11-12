@@ -171,7 +171,7 @@ def parse_table_headers(tags, html_str):
         "^.*(?P<header>{0})".format('|'.join(tags)),
         re.IGNORECASE,
     )
-    page = BeautifulSoup(html_str)
+    page = BeautifulSoup(html_str, convertEntities=BeautifulSoup.HTML_ENTITIES)
     # Remove all <br /> tags, because they'll only screw things up.
     for br in page.findAll('br'):
         br.extract()
