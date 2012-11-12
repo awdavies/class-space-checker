@@ -91,7 +91,7 @@ def set_url_opener():
     urllib2.install_opener(url_opener)
     return cookies
 
-def send_post_request(url, params={}):
+def send_post_request(url, params={}, headers={}):
     '''
     Attempts to open the link using a post request with the passed dictionary of
     params.
@@ -100,7 +100,8 @@ def send_post_request(url, params={}):
     '''
     post_data_encoded = urllib.urlencode(params)
     request = urllib2.Request(url, post_data_encoded, HTTP_HEADERS)
-    print request.get_full_url()
+    for k in headers.keys():
+        request.add_header(k, headers[k])
     return urllib2.urlopen(request)
 
 def unwrap_html_contents(elmnt):

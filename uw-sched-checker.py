@@ -20,6 +20,7 @@ import getpass
 import optparse
 import re
 import sys
+import time
 import urllib
 import web_util as wu
 
@@ -107,52 +108,18 @@ def get_schedule_page(sched_params):
     through the relay atop the page.
     '''
     html_str = wu.send_get_request(SCHEDULE_URL, sched_params).read()
-    print '=============================================================='
-    print html_str
-    print '=============================================================='
-    params = wu.parse_hidden_params(html_str)
-    redirect_link = params['relay_url']
-    '''
-    Send a post request to the 'document.onload' function using a POST so we can
-    get our session id and load the page properly.
-    '''
-    html_str = wu.send_post_request(redirect_link).read()
-    print '=============================================================='
-    print html_str
-
-    sys.exit(1)
-    '''
-    response = wu.send_get_request(SCHEDULE_URL, sched_params)
-    html_str = response.read()
-
-    print html_str
-
-    # Now that we're here, we don't give a crap about javascript, so we'll need
-    # to refresh the page with the silly fake cookie they gave us.
-    #
-    # Then we'll have to go through one more button and that should be it.
-    redir_params = wu.parse_hidden_params(html_str)
-    redirect_link = wu.parse_redirect_action(html_str)
-    print redirect_link
-    response = wu.send_post_request(redirect_link, redir_params)
-    html_str = response.read()
-
-
-    ##### GET PAGE FOR SLN
-    #
-    final_params = wu.parse_hidden_params(html_str)
-    # This is a bit of a hack.  The page requires 'get args.'  Currently
-    # we can't loop around until we finally get redirected through the page.
-    # right now this needs to be changed since this exposing implementation
-    # details of web_util.py!
-    final_params['get_args'] = urllib.urlencode(sched_params)
-    redirect_link = wu.parse_redirect_action(html_str)
-    print redirect_link
-    response = wu.send_post_request(redirect_link, final_params)
-    html_str = response.read()
-    sys.exit(1)
+    while True:
+        params = wu.parse_hidden_params(html_str)
+        redirect_link = wu.parse_redirect_action(html_str)
+        if redirect_link is None:
+            break
+        '''
+        Send a post request to the 'document.onload' function using a POST so we can
+        get our session id and load the page properly.
+        '''
+        resp = wu.send_post_request(redirect_link, params)
+        html_str = resp.read()
     return html_str
-    '''
 
 def uw_netid_login(netid, password):
     login_params = wu.parse_hidden_params(wu.send_get_request(WEBLOGIN_URL))
@@ -191,11 +158,15 @@ def main():
 
         sched_params = build_schedule_params(3, sln)   # TODO: Hard coded! Change after debugging.
         html_str = get_schedule_page(sched_params)
-        
+
         ##### STAGE 3: PARSE PAGE FOR ENROLLMENT COUNT
         #
         # If we're here, then we have the page!
-        #info = wu.parse_table_headers(['SLN', 'Title', 'Enrollment', 'Limit'], html_str)
+        info = wu.parse_table_headers(['SLN', 'Title', 'Enrollment', 'Limit'], html_str)
+        print info
+        # This is here because apparently quick successive
+        # requests make the server cry.
+        time.sleep(6)  
 
 if __name__ == '__main__':
     main()
