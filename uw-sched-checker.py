@@ -154,7 +154,7 @@ def print_class_info(info):
     if info == {}:
         return
     status = [u'CLOSED', u'OPEN'][int(info['Enrollment']) < int(info['Limit'])]
-    info_str = u"[{0} ({1})]<{2}/{3}>: Status = {4}".format(
+    info_str = u"[{0} ({1})]< {2} / {3} >: Status = {4}".format(
         info['Title'], 
         info['Course'],
         info['Enrollment'],
