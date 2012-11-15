@@ -19,6 +19,7 @@ import datetime
 import getpass
 import optparse
 import re
+import signal
 import sys
 import time
 import urllib
@@ -41,6 +42,10 @@ WEBLOGIN_REGEX = re.compile(r'weblogin.washington.edu', re.IGNORECASE)
 
 SDB_ADMIN_PUB_DOMAIN = 'sdb.admin.washington.edu'
 SDB_ADMIN_SESSION_DOMAIN = '.sdb.admin.washington.edu'
+
+def sigint_handler(signal, frame):
+    print 'SIGINT Caught. Exiting . . .'
+    sys.exit(0)
 
 def parse_options():
 
@@ -185,7 +190,10 @@ def main():
 
         # This is here because apparently quick successive
         # requests make the server cry.
-        time.sleep(6)  
+        # TODO: Maybe backoff exponentially, or according to some function, if
+        # we detect the horrifying 'missing page'
+        time.sleep(6)
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, sigint_handler)
     main()
