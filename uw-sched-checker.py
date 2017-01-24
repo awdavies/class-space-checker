@@ -28,7 +28,7 @@ import web_util as wu
 # These are the current known strings for time schedule quarters.
 # for now we'll have to have the user specify which one is which.
 # (Spring and Summer I just made up).
-QUARTERS = ['SPR', 'SUM', 'AUT', 'WIN',]
+QUARTERS = {'spring':'SPR', 'summer':'SUM', 'autumn':'AUT', 'winter':'WIN',}
 
 # This will be where we log in.
 WEBLOGIN_URL = "https://weblogin.washington.edu/"
@@ -51,6 +51,14 @@ def parse_options():
 
     def sln_callback(option, opt, value, parser):
         setattr(parser.values, option.dest, value.split(','))
+    def qtr_callback(option, opt, value, parser):
+        qtr = None
+        try:
+            qtr = QUARTERS[value.lower()]
+        except KeyError:
+            print 'Quarter "{0}" not recognized.  Aborting.'.format(value)
+            sys.exit(1)
+        setattr(parser.values, option.dest, qtr)
 
     # Create instance of OptionParser Module, included in Standard Library
     p = optparse.OptionParser(
@@ -61,51 +69,71 @@ def parse_options():
     )
     p.add_option('--user','-u', help='User name')
     p.add_option(
-        '--password', 
-        '-p', 
+        '--password',
+        '-p',
         help='Password. If ommitted, will be requested as user input.'
     )
     p.add_option(
-        '--sln', 
-        '-s', 
+        '--sln',
+        '-s',
         type='string',
-        action="callback", 
-        callback=sln_callback, 
+        action="callback",
+        callback=sln_callback,
         help='Class SLN Number'
+    )
+    p.add_option(
+        '--qtr',
+        '-q',
+        type='string',
+        action="callback",
+        callback=qtr_callback,
+        help='Quarter: "winter," "summer," "spring," or "autumn" case ignored'
+    )
+    p.add_option(
+        '--year',
+        '-y',
+        type='int',
+        help='The year of the class in question.'
     )
 
     options, arguments = p.parse_args()
 
-    if not options.user:
-        setattr(options, 'user', raw_input('[?] UW Netid: '))
-    if not options.password:
-        setattr(options, 'password', getpass.getpass('[?] Password: '))
+    if not options.qtr:
+        setattr(options, 'qtr', raw_input('[?] Quarter: '))
+    if not options.year:
+        try:
+            raw_in = raw_input('[?] Year: ')
+            year_in = int(raw_in)
+            setattr(options, 'year', year_in)
+        except ValueError:
+            print 'Could not parse year "{0}"'.format(raw_in)
+            sys.exit(1)
     if not options.sln:
         setattr(
-            options, 
-            'sln', 
+            options,
+            'sln',
             raw_input(
                 '[?] Class SLNs (separated by comma, no spaces): '
             ).split(',')
         )
+    if not options.user:
+        setattr(options, 'user', raw_input('[?] UW Netid: '))
+    if not options.password:
+        setattr(options, 'password', getpass.getpass('[?] Password: '))
 
     return options
 
     p.print_help()
     sys.exit(1)
 
-def build_schedule_params(qtr_index, sln):
+def build_schedule_params(qtr, year, sln):
     '''
     Builds the parameters for the schedule page.  The params returned will not
     be encoded and will simply be a python dictionary (so that we can check for
     debugging.  Handling the encoding should be done when loading the web page).
     '''
-    year = datetime.datetime.now().year
-    qtr = QUARTERS[qtr_index]
-    if qtr_index == 3:   # if this is winter, we'll be lookin at next year.
-        year += 1
     params = {}
-    params['QTRYR'] = "{0} {1}".format(qtr, year)
+    params['QTRYR'] = "{0}+{1}".format(qtr, year)
     params['SLN'] = sln
     return params
 
@@ -133,7 +161,7 @@ def uw_netid_login(netid, password):
     login_params['user'] = netid
     login_params['pass'] = password
 
-    ''' 
+    '''
     TODO: Handle a) The WEBLOGIN_URL not opening, b) The username/pass being wrong
     '''
     wu.send_post_request(WEBLOGIN_URL, login_params)
@@ -160,7 +188,7 @@ def print_class_info(info):
         return
     status = [u'CLOSED', u'OPEN'][int(info['Enrollment']) < int(info['Limit'])]
     info_str = u"[{0} ({1})]< {2} / {3} >: Status = {4}".format(
-        info['Title'], 
+        info['Title'],
         info['Course'],
         info['Enrollment'],
         info['Limit'],
@@ -169,7 +197,7 @@ def print_class_info(info):
     print info_str
 
 def main():
-    # Set the cookie handler so we can pass around cookies 
+    # Set the cookie handler so we can pass around cookies
     # from the POST request.  TODO: Should we pass in the cookie jar
     # to be able to read it later?  If we're automating and this is
     # all in a loop, we'll need to be able to clear expired cookies.
@@ -180,10 +208,10 @@ def main():
         # Make sure none of the cookies are expired.  Re-login if necessary.
         validate_login_cookie(cookies, opts.user, opts.password)
 
-        sched_params = build_schedule_params(3, sln)   # TODO: Hard coded! Change after debugging.
+        sched_params = build_schedule_params(opts.qtr, opts.year, sln)
         html_str = get_schedule_page(sched_params)
         info = wu.parse_table_headers(
-            ['SLN', 'Course', 'Title', 'Enrollment', 'Limit'], 
+            ['SLN', 'Course', 'Title', 'Enrollment', 'Limit'],
             html_str
         )
         print_class_info(info)

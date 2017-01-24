@@ -24,7 +24,6 @@ def send_get_request(url, params={}):
     get_data_encoded = urllib.urlencode(params)
     if get_data_encoded:
         url = "?".join([url, get_data_encoded])
-    
     request = urllib2.Request(url=url, data=None, headers=HTTP_HEADERS)
     response = urllib2.urlopen(request)
     return response
@@ -148,8 +147,8 @@ def parse_table_headers(tags, html_str):
 
     Then the data under 'Foo' would be 22, and the data under 'Bar' would be 64.
 
-    The arguments required are a list of table header names (case insensitive) 
-    that the callee intends to find in at most one of the table headers (the 
+    The arguments required are a list of table header names (case insensitive)
+    that the callee intends to find in at most one of the table headers (the
     last matching table header will have its value stored in the dictionary for
     now).
 
@@ -185,7 +184,7 @@ def parse_table_headers(tags, html_str):
     # tables....).  We'll iterate through all of the rows and columns, keeping
     # track of where we are so we can access other sections of the rows and
     # columns if we encounter the types of elements we're looking for.
-    tables = page.findAll('table')  
+    tables = page.findAll('table')
     for table in tables:
         rows = table.findAll('tr')
         row_index = 0
