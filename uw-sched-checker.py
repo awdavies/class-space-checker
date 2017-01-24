@@ -201,7 +201,7 @@ def main():
     # from the POST request.  TODO: Should we pass in the cookie jar
     # to be able to read it later?  If we're automating and this is
     # all in a loop, we'll need to be able to clear expired cookies.
-    cookies = wu.set_url_opener()
+    cookies = wu.make_url_opener()
     opts = parse_options()
 
     for sln in opts.sln:

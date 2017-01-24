@@ -76,7 +76,7 @@ def parse_redirect_action(html_str):
             return None
     return None
 
-def set_url_opener():
+def make_url_opener():
     '''
     Builds a cookie-lovin, url openin machine (pretty simple, but the
     implementation may change later, so it's a function).
