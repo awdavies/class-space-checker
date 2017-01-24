@@ -10,7 +10,7 @@ classes you want are taken or empty.
 
 ### Example Usage
 
-[![usage_example](https://github.com/awdavies/class-space-checker/raw/master/img/usage_example_1.png)](#Requirements)
+[![usage_example](https://github.com/awdavies/class-space-checker/raw/master/img/usage_example_2.png)](#Requirements)
 
 ### Credits
 
