@@ -6,7 +6,7 @@ classes you want are taken or empty.
 
 ### Requirements
 
-* Python 2.x
+* Python 2.7.x
 
 ### Example Usage
 
