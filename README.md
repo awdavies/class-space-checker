@@ -3,7 +3,7 @@ Class Schedule Checker
 
 ### Requirements
 
-* Python 2.x
+* Python 2.7.x
 
 ### Credits
 
